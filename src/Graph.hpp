@@ -3,12 +3,13 @@
 
 #include <cassert>
 #include <cinttypes>
-#include <limits>
 #include <list>
 #include <memory>
 #include <numeric>
 #include <optional>
 #include <queue>
+#include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -27,6 +28,7 @@ public:
         Weight weight;
         Vtx u, v;
 
+#if 0
         constexpr bool operator<(const Edge& rhs) const {
             // A comparação (mais) "importante"
             if (weight != rhs.weight)
@@ -37,6 +39,7 @@ public:
                 return u < rhs.u;
             return v < rhs.v;
         }
+#endif  // 0
     };
 
     uint32_t n() const {
@@ -93,9 +96,79 @@ public:
         return rv;
     }
 
+    template <class Container = std::vector<Weight>>
+    void dijkstra(Vtx source, Container* pDist, Graph* pSpt) const {
+        /**
+         * Implementação baseada em:
+         * https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm#Using_a_priority_queue (seção do
+         * pseudocódigo)
+         */
+
+        if (n() != 0 && source >= n()) {
+            throw std::out_of_range(
+                "Graph::dijkstra(): Argumento {source} deve ser menor que Graph::n()");
+        }
+
+        if (!pDist && !pSpt) {
+            throw std::logic_error("Graph::dijkstra(): pelo menos um dos argumentos {pSpt} e "
+                                   "{pDist} não deve ser nulo");
+        }
+
+        // Os arrays auxiliares serão indexados por vértice por padrão
+        std::vector<Weight> dist(n(), k_InfWeight);
+        std::vector<int64_t> prev(n(), -1);  // -1 = vértice indefinido
+        // prev[source] = 0;
+        dist[source] = 0;
+
+        // (Na STL, o predicado do operador > faz uma min-heap, e vice-versa)
+        static const auto g_HeapPredicate = [](Adj u, Adj v) { return u.weight > v.weight; };
+        // Dessa vez não vai dar para usar simplesmente std::priority_queue porque precisamos ser
+        // capazes de mudar a prioridade de elementos que possam não ser o topo
+        std::priority_queue<Adj, std::vector<Adj>, decltype(g_HeapPredicate)> q(g_HeapPredicate);
+
+        q.emplace(0, source);
+
+        while (!q.empty()) {
+            auto [du, u] = q.top();
+            q.pop();
+            if (du > dist[u])
+                continue;  // entrada obsoleta
+
+            for (const auto& arc : adj(u)) {
+                Weight alt = dist[u] + arc.weight;
+                if (alt < dist[arc.v]) {
+                    prev[arc.v] = u;
+                    dist[arc.v] = alt;
+                    q.emplace(alt, arc.v);
+                }
+            }
+        }
+
+        if (pDist) {
+            if constexpr (std::is_same<decltype(dist), Container>::value) {
+                *pDist = std::move(dist);
+            } else {
+                *pDist = Container(dist.cbegin(), dist.cend());
+            }
+        }
+
+        if (pSpt) {
+            *pSpt = Graph{};
+            for (Vtx v = 0; v < n(); v++) {
+                if (prev[v] >= 0 && v != source) {
+                    Weight w = dist[v] - dist[prev[v]];
+                    pSpt->insert(Edge{w, prev[v], v});
+                }
+            }
+        }
+    }
+
     Graph prim(Vtx start = 0) const {
         // Limitar start ao intervalo de vértices presente/existente no grafo
-        start = std::min(start, n());
+        if (n() != 0 && start >= n()) {
+            throw std::out_of_range(
+                "Graph::prim(): Argumento {start} deve ser menor que Graph::n()");
+        }
 
         /**
          * Implementação baseada em:
@@ -108,7 +181,7 @@ public:
         std::vector<bool> explored(n(), false);
 
         // (Na STL, o predicado do operador > faz uma min-heap, e vice-versa)
-        static const auto g_HeapPredicate = [&](Adj u, Adj v) { return u.weight > v.weight; };
+        static const auto g_HeapPredicate = [](Adj u, Adj v) { return u.weight > v.weight; };
         // unexplored é consultado sempre pelo menor custo, então será uma min-heap
         std::priority_queue<Adj, std::vector<Adj>, decltype(g_HeapPredicate)> unexplored(
             g_HeapPredicate);
