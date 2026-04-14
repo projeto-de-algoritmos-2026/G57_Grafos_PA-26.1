@@ -14,19 +14,19 @@ namespace App {
 // Lugares do campus FCTE — índice = vértice no grafo
 // ---------------------------------------------------------------------------
 static constexpr std::string_view g_Lugares[] = {
-    "Obelisco",                   // 0
-    "Auditório",                  // 1
-    "Corredor, frente à I1",      // 2
-    "Corredor, frente à I5",      // 3
-    "Corredor, frente à I10",     // 4
-    "Laboratórios",               // 5
-    "RU",                         // 6
-    "Quadra",                     // 7
-    "Contêineres",                // 8
-    "Saída Principal",            // 9
-    "I1",                         // 10
-    "I5",                         // 11
-    "I10",                        // 12
+    "Obelisco",                // 0
+    "Auditório",               // 1
+    "Corredor, frente à I1",   // 2
+    "Corredor, frente à I5",   // 3
+    "Corredor, frente à I10",  // 4
+    "Laboratórios",            // 5
+    "RU",                      // 6
+    "Quadra",                  // 7
+    "Contêineres",             // 8
+    "Saída Principal",         // 9
+    "I1",                      // 10
+    "I5",                      // 11
+    "I10",                     // 12
 };
 
 static constexpr uint32_t k_NumLugares = APP_ARRAY_SIZE(g_Lugares);
@@ -57,9 +57,9 @@ static constexpr EdgeDef g_Arestas[] = {
     {5, 8, 120},  // Laboratórios <-> Contêineres
     {0, 5, 90},   // Obelisco <-> Laboratórios
     {3, 0, 50},   // Corredor, frente à I5 <-> Obelisco
-    {2, 10, 10},   // Corredor, frente à I1 <-> I1
-    {3, 11, 10},   // Corredor, frente à I5 <-> I5
-    {4, 12, 10},   // Corredor, frente à I10 <-> I10
+    {2, 10, 10},  // Corredor, frente à I1 <-> I1
+    {3, 11, 10},  // Corredor, frente à I5 <-> I5
+    {4, 12, 10},  // Corredor, frente à I10 <-> I10
 };
 
 // ---------------------------------------------------------------------------
