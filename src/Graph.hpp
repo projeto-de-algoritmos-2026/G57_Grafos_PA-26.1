@@ -1,54 +1,44 @@
 // Graph.hpp
 // SPDX-License-Identifier: BSD-2-Clause
+#pragma once
 
 #include <cassert>
 #include <cinttypes>
 #include <list>
-#include <memory>
-#include <numeric>
 #include <optional>
 #include <queue>
 #include <stdexcept>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 namespace App {
+
 class Graph {
 public:
     using Vtx = uint32_t;
     using Weight = uint32_t;
     static constexpr Weight k_InfWeight = 0xFFFFFFFF;
+
     struct Adj {
         Weight weight;
         Vtx v;
+        Adj() = default;
+        Adj(Vtx v_, Weight w_) : weight(w_), v(v_) {}
     };
 
     struct Edge {
         Weight weight;
         Vtx u, v;
-
-#if 0
-        constexpr bool operator<(const Edge& rhs) const {
-            // A comparação (mais) "importante"
-            if (weight != rhs.weight)
-                return weight < rhs.weight;
-            // Provavelmente desnecessário para nossos fins mas não deverá
-            // afetar negativamente os resultados operacionais, então...:
-            if (u != rhs.u)
-                return u < rhs.u;
-            return v < rhs.v;
-        }
-#endif  // 0
+        Edge() = default;
+        Edge(Weight w_, Vtx u_, Vtx v_) : weight(w_), u(u_), v(v_) {}
     };
 
     uint32_t n() const {
         assert(m_Adj.size() <= 0xFFFFFFFF);
-        return m_Adj.size();
+        return static_cast<uint32_t>(m_Adj.size());
     }
 
     void setN(uint32_t n) {
-        uint32_t oldN = this->n();
         // Passo 1: Redimensionar o vetor primário
         m_Adj.resize(n);
         if (m_Adj.size() < m_Adj.capacity() >> 1) {
@@ -56,19 +46,14 @@ public:
             m_Adj.shrink_to_fit();
         }
         // Passo 2: Limpar vértices excedendo n - 1
-        for (auto& list : m_Adj) {
-            list.remove_if([n](const auto& adj) { return adj.v >= n; });
-        }
+        for (auto& list : m_Adj)
+            list.remove_if([n](const Adj& a) { return a.v >= n; });
     }
 
-    void insert(const Edge& e) {
-        const auto& [w, u, v] = e;
-        m_Adj.at(u).emplace_back(v, w);
-    }
+    void insert(const Edge& e) { m_Adj.at(e.u).emplace_back(e.v, e.weight); }
 
     void remove(const Edge& e) {
-        const auto& [u, v, _] = e;
-        m_Adj.at(u).remove_if([v](const auto& adj) { return adj.v == v; });
+        m_Adj.at(e.u).remove_if([&e](const Adj& a) { return a.v == e.v; });
     }
 
     template <class Container = std::vector<Adj>>
@@ -79,20 +64,17 @@ public:
     template <class Container = std::vector<Edge>>
     Container adjEdges(Vtx u) const {
         Container rv;
-        for (const auto& a : m_Adj.at(u)) {
+        for (const auto& a : m_Adj.at(u))
             rv.emplace_back(a.weight, u, a.v);
-        }
         return rv;
     }
 
     template <class Container = std::vector<Edge>>
     Container edges() const {
         Container rv;
-        for (Vtx i = 0; i < m_Adj.size(); i++) {
-            for (const auto& a : m_Adj[i]) {
+        for (Vtx i = 0; i < static_cast<Vtx>(m_Adj.size()); i++)
+            for (const auto& a : m_Adj[i])
                 rv.emplace_back(a.weight, i, a.v);
-            }
-        }
         return rv;
     }
 
@@ -104,15 +86,10 @@ public:
          * pseudocódigo)
          */
 
-        if (n() != 0 && source >= n()) {
-            throw std::out_of_range(
-                "Graph::dijkstra(): Argumento {source} deve ser menor que Graph::n()");
-        }
-
-        if (!pDist && !pSpt) {
-            throw std::logic_error("Graph::dijkstra(): pelo menos um dos argumentos {pSpt} e "
-                                   "{pDist} não deve ser nulo");
-        }
+        if (n() != 0 && source >= n())
+            throw std::out_of_range("Graph::dijkstra(): source fora do intervalo");
+        if (!pDist && !pSpt)
+            throw std::logic_error("Graph::dijkstra(): pDist e pSpt nao podem ser ambos nulos");
 
         // Os arrays auxiliares serão indexados por vértice por padrão
         std::vector<Weight> dist(n(), k_InfWeight);
@@ -121,43 +98,45 @@ public:
         dist[source] = 0;
 
         // (Na STL, o predicado do operador > faz uma min-heap, e vice-versa)
-        static const auto g_HeapPredicate = [](Adj u, Adj v) { return u.weight > v.weight; };
+        auto cmp = [](const Adj& a, const Adj& b) { return a.weight > b.weight; };
         // Dessa vez não vai dar para usar simplesmente std::priority_queue porque precisamos ser
         // capazes de mudar a prioridade de elementos que possam não ser o topo
-        std::priority_queue<Adj, std::vector<Adj>, decltype(g_HeapPredicate)> q(g_HeapPredicate);
-
-        q.emplace(0, source);
+        std::priority_queue<Adj, std::vector<Adj>, decltype(cmp)> q(cmp);
+        q.push(Adj(source, 0));
 
         while (!q.empty()) {
-            auto [du, u] = q.top();
+            Adj top = q.top();
             q.pop();
+            Vtx u = top.v;
+            Weight du = top.weight;
             if (du > dist[u])
                 continue;  // entrada obsoleta
 
-            for (const auto& arc : adj(u)) {
+            for (const Adj& arc : adj(u)) {
                 Weight alt = dist[u] + arc.weight;
                 if (alt < dist[arc.v]) {
-                    prev[arc.v] = u;
+                    prev[arc.v] = static_cast<int64_t>(u);
                     dist[arc.v] = alt;
-                    q.emplace(alt, arc.v);
+                    q.push(Adj(arc.v, alt));
                 }
             }
         }
 
         if (pDist) {
-            if constexpr (std::is_same<decltype(dist), Container>::value) {
+            if constexpr (std::is_same<decltype(dist), Container>::value)
                 *pDist = std::move(dist);
-            } else {
+            else
                 *pDist = Container(dist.cbegin(), dist.cend());
-            }
         }
 
         if (pSpt) {
             *pSpt = Graph{};
+            pSpt->setN(n());
             for (Vtx v = 0; v < n(); v++) {
                 if (prev[v] >= 0 && v != source) {
-                    Weight w = dist[v] - dist[prev[v]];
-                    pSpt->insert(Edge{w, prev[v], v});
+                    Vtx p = static_cast<Vtx>(prev[v]);
+                    Weight w = dist[v] - dist[p];
+                    pSpt->insert(Edge(w, p, v));
                 }
             }
         }
@@ -165,10 +144,8 @@ public:
 
     Graph prim(Vtx start = 0) const {
         // Limitar start ao intervalo de vértices presente/existente no grafo
-        if (n() != 0 && start >= n()) {
-            throw std::out_of_range(
-                "Graph::prim(): Argumento {start} deve ser menor que Graph::n()");
-        }
+        if (n() != 0 && start >= n())
+            throw std::out_of_range("Graph::prim(): start fora do intervalo");
 
         /**
          * Implementação baseada em:
@@ -181,44 +158,40 @@ public:
         std::vector<bool> explored(n(), false);
 
         // (Na STL, o predicado do operador > faz uma min-heap, e vice-versa)
-        static const auto g_HeapPredicate = [](Adj u, Adj v) { return u.weight > v.weight; };
+        auto cmp = [](const Adj& a, const Adj& b) { return a.weight > b.weight; };
         // unexplored é consultado sempre pelo menor custo, então será uma min-heap
-        std::priority_queue<Adj, std::vector<Adj>, decltype(g_HeapPredicate)> unexplored(
-            g_HeapPredicate);
+        std::priority_queue<Adj, std::vector<Adj>, decltype(cmp)> unexplored(cmp);
 
         cheapestCost[start] = 0;
-        unexplored.emplace(0, start);
+        unexplored.push(Adj(start, 0));
 
         while (!unexplored.empty()) {
             // Selecionar vértice não-explorado com menor custo
-            auto [cost, currentVtx] = unexplored.top();
+            Vtx cur = unexplored.top().v;
             unexplored.pop();
-            if (explored[currentVtx])
+            if (explored[cur])
                 continue;
-            explored[currentVtx] = true;
+            explored[cur] = true;
 
-            for (const Adj& adj : adj(currentVtx)) {
-                const Vtx& neighbor = adj.v;
-                if (!explored[neighbor] && adj.weight < cheapestCost[neighbor]) {
-                    cheapestCost[neighbor] = adj.weight;
-                    cheapestEdge[neighbor] = Edge{adj.weight, currentVtx, adj.v};
-                    unexplored.emplace(adj.weight, neighbor);
+            for (const Adj& a : adj(cur)) {
+                if (!explored[a.v] && a.weight < cheapestCost[a.v]) {
+                    cheapestCost[a.v] = a.weight;
+                    cheapestEdge[a.v] = Edge(a.weight, cur, a.v);
+                    unexplored.push(Adj(a.v, a.weight));
                 }
             }
         }
 
-        Graph resultEdges;
-        for (Vtx vertex = 0; vertex < n(); vertex++) {
-            const auto& cheapest = cheapestEdge[vertex];
-            if (cheapest != std::nullopt) {
-                resultEdges.insert(*cheapest);
-            }
-        }
-
-        return resultEdges;
+        Graph result;
+        result.setN(n());
+        for (Vtx v = 0; v < n(); v++)
+            if (cheapestEdge[v])
+                result.insert(*cheapestEdge[v]);
+        return result;
     }
 
 private:
     std::vector<std::list<Adj>> m_Adj;
 };
+
 }  // namespace App

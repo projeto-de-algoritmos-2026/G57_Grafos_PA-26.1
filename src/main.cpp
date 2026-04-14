@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include <algorithm>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <locale>
@@ -249,5 +250,5 @@ int main() {
     std::cerr.imbue(std::locale("pt_BR.UTF-8"));
 
     App::menuPrincipal();
-    return 0;
+    return EXIT_SUCCESS;
 }
