@@ -31,6 +31,19 @@ public:
         Vtx    u, v;
         Edge() = default;
         Edge(Weight w_, Vtx u_, Vtx v_) : weight(w_), u(u_), v(v_) {}
+
+#if 0
+        constexpr bool operator<(const Edge& rhs) const {
+            // A comparação (mais) "importante"
+            if (weight != rhs.weight)
+                return weight < rhs.weight;
+            // Provavelmente desnecessário para nossos fins mas não deverá
+            // afetar negativamente os resultados operacionais, então...:
+            if (u != rhs.u)
+                return u < rhs.u;
+            return v < rhs.v;
+        }
+#endif  // 0
     };
 
     uint32_t n() const {
@@ -39,9 +52,13 @@ public:
     }
 
     void setN(uint32_t n) {
+        // Passo 1: Redimensionar o vetor primário
         m_Adj.resize(n);
-        if (m_Adj.size() < m_Adj.capacity() >> 1)
+        if (m_Adj.size() < m_Adj.capacity() >> 1) {
+            // Limpar memória desnecessária
             m_Adj.shrink_to_fit();
+        }
+        // Passo 2: Limpar vértices excedendo n - 1
         for (auto& list : m_Adj)
             list.remove_if([n](const Adj& a) { return a.v >= n; });
     }
@@ -78,16 +95,27 @@ public:
 
     template <class Container = std::vector<Weight>>
     void dijkstra(Vtx source, Container* pDist, Graph* pSpt) const {
+        /**
+         * Implementação baseada em:
+         * https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm#Using_a_priority_queue (seção do
+         * pseudocódigo)
+         */
+
         if (n() != 0 && source >= n())
             throw std::out_of_range("Graph::dijkstra(): source fora do intervalo");
         if (!pDist && !pSpt)
             throw std::logic_error("Graph::dijkstra(): pDist e pSpt nao podem ser ambos nulos");
 
+        // Os arrays auxiliares serão indexados por vértice por padrão
         std::vector<Weight>  dist(n(), k_InfWeight);
-        std::vector<int64_t> prev(n(), -1);
+        std::vector<int64_t> prev(n(), -1);  // -1 = vértice indefinido
+        // prev[source] = 0;
         dist[source] = 0;
 
+        // (Na STL, o predicado do operador > faz uma min-heap, e vice-versa)
         auto cmp = [](const Adj& a, const Adj& b) { return a.weight > b.weight; };
+        // Dessa vez não vai dar para usar simplesmente std::priority_queue porque precisamos ser
+        // capazes de mudar a prioridade de elementos que possam não ser o topo
         std::priority_queue<Adj, std::vector<Adj>, decltype(cmp)> q(cmp);
         q.push(Adj(source, 0));
 
@@ -95,7 +123,7 @@ public:
             Adj top = q.top(); q.pop();
             Vtx    u  = top.v;
             Weight du = top.weight;
-            if (du > dist[u]) continue;
+            if (du > dist[u]) continue;  // entrada obsoleta
 
             for (const Adj& arc : adj(u)) {
                 Weight alt = dist[u] + arc.weight;
@@ -128,20 +156,30 @@ public:
     }
 
     Graph prim(Vtx start = 0) const {
+        // Limitar start ao intervalo de vértices presente/existente no grafo
         if (n() != 0 && start >= n())
             throw std::out_of_range("Graph::prim(): start fora do intervalo");
 
+        /**
+         * Implementação baseada em:
+         * https://en.wikipedia.org/wiki/Prim%27s_algorithm#Description (seção do pseudocódigo)
+         */
+
+        // Os arrays auxiliares serão indexados por vértice por padrão
         std::vector<Weight>               cheapestCost(n(), k_InfWeight);
         std::vector<std::optional<Edge>>  cheapestEdge(n(), std::nullopt);
         std::vector<bool>                 explored(n(), false);
 
+        // (Na STL, o predicado do operador > faz uma min-heap, e vice-versa)
         auto cmp = [](const Adj& a, const Adj& b) { return a.weight > b.weight; };
+        // unexplored é consultado sempre pelo menor custo, então será uma min-heap
         std::priority_queue<Adj, std::vector<Adj>, decltype(cmp)> unexplored(cmp);
 
         cheapestCost[start] = 0;
         unexplored.push(Adj(start, 0));
 
         while (!unexplored.empty()) {
+            // Selecionar vértice não-explorado com menor custo
             Vtx cur = unexplored.top().v;
             unexplored.pop();
             if (explored[cur]) continue;

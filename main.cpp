@@ -4,7 +4,14 @@
 #include <algorithm>
 #include <iostream>
 #include <limits>
+#include <locale>
 #include <vector>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif  // NOMINMAX
+#include <Windows.h>
+#endif  // _WIN32
 #include "AppData.hpp"
 #include "Graph.hpp"
 
@@ -22,7 +29,6 @@ static void clearInput() {
 static void pausar() {
     std::cout << "\nPressione Enter para continuar...";
     clearInput();
-    std::cin.get();
 }
 
 static void imprimirSeparador() {
@@ -46,8 +52,8 @@ static Graph::Vtx lerVertice(const char* prompt) {
         std::cin >> v;
         if (std::cin.fail() || v < 0 || static_cast<uint32_t>(v) >= k_NumLugares) {
             clearInput();
-            std::cout << "  Entrada inválida. Digite um número entre 0 e "
-                      << k_NumLugares - 1 << ".\n";
+            std::cout << "  Entrada inválida. Digite um número entre 0 e " << k_NumLugares - 1
+                      << ".\n";
         } else {
             clearInput();
             return static_cast<Graph::Vtx>(v);
@@ -80,14 +86,17 @@ static void menuDijkstra(const Graph& g) {
     {
         dist.assign(k_NumLugares, Graph::k_InfWeight);
         dist[origem] = 0;
-        auto cmp = [](std::pair<Graph::Weight,Graph::Vtx> a,
-                      std::pair<Graph::Weight,Graph::Vtx> b){ return a.first > b.first; };
-        std::priority_queue<std::pair<Graph::Weight,Graph::Vtx>,
-            std::vector<std::pair<Graph::Weight,Graph::Vtx>>, decltype(cmp)> q(cmp);
+        auto cmp = [](std::pair<Graph::Weight, Graph::Vtx> a,
+                      std::pair<Graph::Weight, Graph::Vtx> b) { return a.first > b.first; };
+        std::priority_queue<std::pair<Graph::Weight, Graph::Vtx>,
+                            std::vector<std::pair<Graph::Weight, Graph::Vtx>>, decltype(cmp)>
+            q(cmp);
         q.push({0, origem});
         while (!q.empty()) {
-            auto [du, u] = q.top(); q.pop();
-            if (du > dist[u]) continue;
+            auto [du, u] = q.top();
+            q.pop();
+            if (du > dist[u])
+                continue;
             for (const auto& arc : g.adj(u)) {
                 Graph::Weight alt = dist[u] + arc.weight;
                 if (alt < dist[arc.v]) {
@@ -100,8 +109,8 @@ static void menuDijkstra(const Graph& g) {
     }
 
     if (dist[destino] == Graph::k_InfWeight) {
-        std::cout << "\nNão existe caminho entre "
-                  << g_Lugares[origem] << " e " << g_Lugares[destino] << ".\n";
+        std::cout << "\nNão existe caminho entre " << g_Lugares[origem] << " e "
+                  << g_Lugares[destino] << ".\n";
         pausar();
         return;
     }
@@ -113,7 +122,10 @@ static void menuDijkstra(const Graph& g) {
         std::vector<bool> visitado(k_NumLugares, false);
         bool ok = true;
         while (cur != origem) {
-            if (visitado[cur] || prev[cur] < 0) { ok = false; break; }
+            if (visitado[cur] || prev[cur] < 0) {
+                ok = false;
+                break;
+            }
             visitado[cur] = true;
             caminho.push_back(cur);
             cur = static_cast<Graph::Vtx>(prev[cur]);
@@ -129,7 +141,8 @@ static void menuDijkstra(const Graph& g) {
     std::cout << "\nCaminho mais curto:\n";
     imprimirSeparador();
     for (size_t i = 0; i < caminho.size(); i++) {
-        if (i > 0) std::cout << "  ->  ";
+        if (i > 0)
+            std::cout << "  ->  ";
         std::cout << g_Lugares[caminho[i]];
         if (i > 0)
             std::cout << " (" << dist[caminho[i]] << "m acumulado)";
@@ -154,14 +167,14 @@ static void menuMST(const Graph& g) {
 
     Graph::Weight custoTotal = 0;
     auto arestas = mst.edges();
-    for (const auto& e : arestas) custoTotal += e.weight;
+    for (const auto& e : arestas)
+        custoTotal += e.weight;
 
     std::cout << "\nConexões da rota mínima para visitar o campus inteiro:\n";
     imprimirSeparador();
     for (const auto& e : arestas) {
-        std::cout << "  " << g_Lugares[e.u]
-                  << "  ->  " << g_Lugares[e.v]
-                  << "  (" << e.weight << "m)\n";
+        std::cout << "  " << g_Lugares[e.u] << "  ->  " << g_Lugares[e.v] << "  (" << e.weight
+                  << "m)\n";
     }
     imprimirSeparador();
     std::cout << "Distância total percorrida: " << custoTotal << " metros\n";
@@ -191,18 +204,22 @@ static void menuPrincipal() {
         clearInput();
 
         switch (opcao) {
-            case 1: menuDijkstra(g); break;
-            case 2: menuMST(g);     break;
-            case 3:
-                imprimirLugares();
-                pausar();
-                break;
-            case 0:
-                std::cout << "Saindo...\n";
-                return;
-            default:
-                std::cout << "Opção inválida.\n";
-                break;
+        case 1:
+            menuDijkstra(g);
+            break;
+        case 2:
+            menuMST(g);
+            break;
+        case 3:
+            imprimirLugares();
+            pausar();
+            break;
+        case 0:
+            std::cout << "Saindo...\n";
+            return;
+        default:
+            std::cout << "Opção inválida.\n";
+            break;
         }
     }
 }
@@ -210,6 +227,27 @@ static void menuPrincipal() {
 }  // namespace App
 
 int main() {
+// Setar locale para UTF-8
+#ifdef _WIN32
+    // Setar console do Windows para a página de código UTF-8
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+
+    // Habilitar processamento de terminal virtual para saída UTF-8 apropriada
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut != INVALID_HANDLE_VALUE) {
+        DWORD mode = 0;
+        if (GetConsoleMode(hOut, &mode)) {
+            mode |= ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            SetConsoleMode(hOut, mode);
+        }
+    }
+#endif
+
+    std::cin.imbue(std::locale("pt_BR.UTF-8"));
+    std::cout.imbue(std::locale("pt_BR.UTF-8"));
+    std::cerr.imbue(std::locale("pt_BR.UTF-8"));
+
     App::menuPrincipal();
     return 0;
 }
