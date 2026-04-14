@@ -49,3 +49,7 @@ Quando estiver pronto o resultado da operação, ele será mostrado no *console*
 * A implementação específica de grafo usada na aplicação é a lista de adjacências, considerada no geral o melhor "custo-benefício" para diversas aplicações gerais/genéricas.
 * O projeto usa uma só unidade de compilação (`.cpp`) e implementa funcionalidades auxiliares simplesmente em cabeçalhos se necessário, o que não só deixa a compilação mais trivial – a ponto de potencialmente nem ser tão necessário para conveniência quanto (boa) apresentação o projeto CMake aqui –, como a torna mais rápida do que com múltiplas UCs – embora, admitidamente, neste caso não deva ser tão notável por ser um projeto de código tão (relativamente?) pequeno –;
 * Chegamos a saber de uma sugestão de adicionar nós do grafo para o entrepiso de cada escada, para poder se especificar granularmente também o custo (a distância) de se subir e/ou descer uma escada. Porém, um de nós apontou, em contrapartida, que na elaboração do conjunto de dados para o aplicativo esses "custos" já foram considerados e embutidos como parte de arestas/caminhos pré-existentes.
+
+## *Link*(s) do vídeo de entrega
+* https://youtu.be/Ew5WaPj-wnQ (Parte 1/2)
+* https://youtu.be/fAT3LNCmfGk (Parte 2/2)
